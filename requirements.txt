@@ -1,0 +1,4 @@
+claude-agent-sdk>=0.2.119
+anthropic>=0.116.0
+python-dotenv>=1.0.1
+requests>=2.32.0
