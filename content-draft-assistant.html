@@ -123,14 +123,23 @@
   <p class="sub">Plans a shoot, then drafts captions once the footage exists. Nothing here posts anywhere — every draft is for review before it goes near Instagram.</p>
 
   <div class="key-card">
-    <div class="field" style="margin-bottom:0;">
+    <div class="field">
       <div class="field-top">
         <label>Anthropic API key</label>
         <span class="status" id="keyStatus"></span>
       </div>
       <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
-      <div class="field-hint">Stored only in this browser (localStorage) and sent directly from your browser to api.anthropic.com — it never passes through any other server. Don't open this file on a shared or public computer with your key saved, and don't host this page anywhere public.</div>
+      <div class="field-hint">Used for planning, captions, and stock-photo search. Stored only in this browser (localStorage) and sent directly from your browser to api.anthropic.com — it never passes through any other server.</div>
     </div>
+    <div class="field" style="margin-bottom:0;">
+      <div class="field-top">
+        <label>OpenAI API key <span style="text-transform:none;letter-spacing:0;font-weight:400;">(optional — only for AI-generated reference images)</span></label>
+        <span class="status" id="openaiKeyStatus"></span>
+      </div>
+      <input type="password" id="openaiApiKeyInput" placeholder="sk-...">
+      <div class="field-hint">Only used when a shot list image is generated with AI instead of searched as a stock photo. Stored only in this browser and sent directly to api.openai.com. Leave blank and tick "Skip AI-generated images" under any shot list if you'd rather not use this.</div>
+    </div>
+    <div class="field-hint" style="margin-top:16px;">Neither key ever leaves your browser except straight to its own provider. Don't open this file on a shared or public computer with keys saved, and don't host this page anywhere public.</div>
   </div>
 
   <div class="stage-label"><span class="stage-num">1</span><span class="stage-title">Plan the shoot</span></div>
@@ -265,6 +274,26 @@ function updateKeyStatus(){
   }
 }
 
+const OPENAI_KEY_STORAGE_KEY = 'contentAssistant_openaiApiKey';
+function getOpenAiKey(){ return localStorage.getItem(OPENAI_KEY_STORAGE_KEY) || ''; }
+function setOpenAiKey(k){ localStorage.setItem(OPENAI_KEY_STORAGE_KEY, k); }
+
+const openaiApiKeyInput = document.getElementById('openaiApiKeyInput');
+const openaiKeyStatus = document.getElementById('openaiKeyStatus');
+openaiApiKeyInput.value = getOpenAiKey();
+updateOpenAiKeyStatus();
+openaiApiKeyInput.addEventListener('change', function(){ setOpenAiKey(openaiApiKeyInput.value.trim()); updateOpenAiKeyStatus(); });
+openaiApiKeyInput.addEventListener('blur', function(){ setOpenAiKey(openaiApiKeyInput.value.trim()); updateOpenAiKeyStatus(); });
+function updateOpenAiKeyStatus(){
+  if(getOpenAiKey()){
+    openaiKeyStatus.textContent = 'Saved in this browser';
+    openaiKeyStatus.className = 'status ok';
+  } else {
+    openaiKeyStatus.textContent = 'Optional — needed only for AI images';
+    openaiKeyStatus.className = 'status';
+  }
+}
+
 function buildPillarButtons(containerId, getActive, setActive){
   const wrap = document.getElementById(containerId);
   PILLARS.forEach(p => {
@@ -356,6 +385,41 @@ async function callClaude(system, userMsg, options){
   }
 }
 
+async function generateAiImage(prompt){
+  const key = getOpenAiKey();
+  if(!key){
+    throw new Error('Add your OpenAI API key above first, or tick "Skip AI-generated images" to search stock photos instead.');
+  }
+  let response;
+  try{
+    response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + key
+      },
+      body: JSON.stringify({ model: 'gpt-image-1', prompt: prompt, size: '1024x1024', n: 1 })
+    });
+  }catch(networkErr){
+    // A raw browser fetch failing with no HTTP status back (as opposed to
+    // an error response body) usually means the request never reached
+    // OpenAI at all — most likely blocked by CORS, since OpenAI's API
+    // (unlike Anthropic's) isn't designed for direct browser calls. If
+    // this keeps happening, this feature needs a small server-side proxy
+    // that holds the key and forwards the request, rather than calling
+    // OpenAI straight from this page.
+    throw new Error("Couldn't reach OpenAI from the browser — this is likely a CORS restriction on OpenAI's side rather than a bug here, since their API isn't built for direct browser calls the way Anthropic's is. (" + networkErr.message + ")");
+  }
+  if(!response.ok){
+    const errText = await response.text().catch(function(){ return ''; });
+    throw new Error('OpenAI API error ' + response.status + (errText ? ': ' + errText.slice(0, 200) : ''));
+  }
+  const data = await response.json();
+  const b64 = data.data && data.data[0] && data.data[0].b64_json;
+  if(!b64){ throw new Error('No image returned.'); }
+  return 'data:image/png;base64,' + b64;
+}
+
 function escapeHtml(str){
   const d = document.createElement('div');
   d.innerText = str == null ? '' : str;
@@ -403,6 +467,13 @@ async function suggestPiece(){
   }
 }
 
+function buildSkipAiCheckbox(){
+  return '<label class="shot-check" style="margin-bottom:12px;">' +
+    '<input type="checkbox" id="skipAiImages">' +
+    '<span>Skip AI-generated images — search real stock photos instead</span>' +
+  '</label>';
+}
+
 function buildShotRows(items){
   return items.map(function(text){
     shotCounter++;
@@ -425,10 +496,22 @@ function wireShotToggles(container){
   });
 }
 
+const shotImagePrompts = {}; // boxId -> { base: shotText, extra: '' }
+
 async function toggleShotImg(boxId, checked, shotText){
   const box = document.getElementById(boxId);
-  if(!checked){ box.classList.remove('open'); box.innerHTML=''; return; }
+  if(!checked){ box.classList.remove('open'); box.innerHTML=''; delete shotImagePrompts[boxId]; return; }
   box.classList.add('open');
+  const skipEl = document.getElementById('skipAiImages');
+  if(skipEl && skipEl.checked){
+    await runStockPhotoSearch(box, shotText);
+  } else {
+    shotImagePrompts[boxId] = { base: shotText, extra: '' };
+    await runAiImageGeneration(box, boxId);
+  }
+}
+
+async function runStockPhotoSearch(box, shotText){
   box.innerHTML = '<div class="img-note">Searching Unsplash, Pexels, and Pixabay…</div>';
   try{
     const d = await callClaude(IMAGE_SYSTEM_PROMPT, "Topic: " + shotText, { useWebSearch: true });
@@ -438,11 +521,45 @@ async function toggleShotImg(boxId, checked, shotText){
         return '<div class="img-result"><span class="src-tag">' + escapeHtml(r.source) + '</span><a href="' + encodeURI(r.url) + '" target="_blank" rel="noopener">' + escapeHtml(r.title || r.url) + '</a></div>';
       }).join('') + '</div><div class="img-note">Open the link, confirm it is not watermarked, and download from the source site directly.</div>';
     } else {
-      box.innerHTML = '<div class="img-note">No clean results found for this shot. There is no built-in AI image generation in this tool — describe the shot directly to Claude in chat instead, which has real-time image search.</div>';
+      box.innerHTML = '<div class="img-note">No clean stock photo results found for this shot. Try unticking "Skip AI-generated images" above for an AI-generated option instead.</div>';
     }
   }catch(err){
     box.innerHTML = '<div class="error">Image search failed (' + escapeHtml(err.message) + ').</div>';
   }
+}
+
+function buildAiImagePrompt(boxId){
+  const state = shotImagePrompts[boxId];
+  let prompt = "Realistic product photography reference for an independent jewellery designer-maker's Instagram/TikTok content. Shot: " + state.base + ". Style: soft diffused natural daylight, no harsh overhead shadows, true-to-life photo (not illustration or 3D render), no visible text, logos, or watermarks.";
+  if(state.extra){ prompt += " Additional direction: " + state.extra; }
+  return prompt;
+}
+
+async function runAiImageGeneration(box, boxId){
+  box.innerHTML = '<div class="img-note">Generating an AI reference image…</div>';
+  try{
+    const prompt = buildAiImagePrompt(boxId);
+    const dataUrl = await generateAiImage(prompt);
+    renderAiImage(box, boxId, dataUrl);
+  }catch(err){
+    box.innerHTML = '<div class="error">AI image generation failed (' + escapeHtml(err.message) + ').</div>';
+  }
+}
+
+function renderAiImage(box, boxId, dataUrl){
+  box.innerHTML =
+    '<img src="' + dataUrl + '" alt="AI-generated reference" style="max-width:100%;border-radius:8px;border:1px solid var(--line);display:block;margin-bottom:8px;">' +
+    '<div class="img-note">AI-generated reference only — not real footage, don\'t post as-is. Right-click to save if useful.</div>' +
+    '<div style="display:flex;gap:8px;margin-top:8px;">' +
+      '<input type="text" class="ai-refine-input" placeholder="Not quite right? e.g. warmer light, closer crop, no hands">' +
+      '<button class="go-btn secondary ai-regen-btn" type="button">Regenerate</button>' +
+    '</div>';
+  const input = box.querySelector('.ai-refine-input');
+  const btn = box.querySelector('.ai-regen-btn');
+  btn.onclick = async function(){
+    shotImagePrompts[boxId].extra = input.value.trim();
+    await runAiImageGeneration(box, boxId);
+  };
 }
 
 async function generatePlan(){
@@ -470,14 +587,14 @@ async function generatePlan(){
     let bodyHtml = '';
     let fullText = "Hook: " + (d.hook_line || '') + "\n\n";
     if(d.format === 'carousel'){
-      bodyHtml += '<p class="section-label">Slides</p>' + buildShotRows((d.slides || []).map(function(s){ return 'Slide ' + s.slide + ': ' + s.visual + ' — "' + s.caption_line + '"'; }));
+      bodyHtml += '<p class="section-label">Slides</p>' + buildSkipAiCheckbox() + buildShotRows((d.slides || []).map(function(s){ return 'Slide ' + s.slide + ': ' + s.visual + ' — "' + s.caption_line + '"'; }));
       fullText += "Slides:\n" + (d.slides || []).map(function(s){ return s.slide + '. ' + s.visual + ' — "' + s.caption_line + '"'; }).join('\n');
     } else {
       bodyHtml += '<p class="section-label">Transcript — what to say</p>' + (d.script || []).map(function(s){
         return '<div class="script-line"><span class="script-seg">' + escapeHtml(s.segment || '') + '</span><span class="script-say">' + escapeHtml(s.line || '') + '</span></div>';
       }).join('');
       fullText += "Script:\n" + (d.script || []).map(function(s){ return s.segment + ' — ' + s.line; }).join('\n');
-      bodyHtml += '<p class="section-label">Shot list <span style="font-weight:400;text-transform:none;letter-spacing:0;">— tick anything you can’t film</span></p>' + buildShotRows(d.shot_list || []);
+      bodyHtml += '<p class="section-label">Shot list <span style="font-weight:400;text-transform:none;letter-spacing:0;">— tick anything you can’t film</span></p>' + buildSkipAiCheckbox() + buildShotRows(d.shot_list || []);
       fullText += "\n\nShot list:\n" + (d.shot_list || []).map(function(s){ return '- ' + s; }).join('\n');
     }
     if(d.wardrobe){

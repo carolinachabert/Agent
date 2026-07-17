@@ -16,9 +16,11 @@ Open `content-draft-assistant.html` in a browser. Three stages:
 1. **Plan the shoot** (before filming) — pick a content pillar and format
    (video or carousel), describe the topic (or use "Suggest a piece from my
    collection"), and get a script/slide list, hook & pacing notes, shot list,
-   and wardrobe notes. Any shot she can't film gets a reference-image search
-   (Unsplash/Pexels/Pixabay via Claude's web search) so she has something to
-   look at instead.
+   and wardrobe notes. Tick any shot she can't film and it generates an
+   AI reference image (OpenAI's `gpt-image-1`) by default — with a field to
+   describe what to change and regenerate if the first attempt isn't right.
+   Tick "Skip AI-generated images" above the shot list to search real stock
+   photos (Unsplash/Pexels/Pixabay via Claude's web search) instead.
 2. **Draft captions** (after filming) — describe what's in the footage and
    get two on-brand caption drafts with pillar-matched CTAs, on-screen banner
    text, and a bio-link label, checked against the voice rules baked into the
@@ -38,18 +40,38 @@ No build step, no server, no install. Open `content-draft-assistant.html`
 directly in a browser (double-click it, or `open content-draft-assistant.html`
 on macOS).
 
-Paste an Anthropic API key into the field at the top of the page. It's saved
-to `localStorage` in that browser and sent directly from the browser to
-`api.anthropic.com` — nothing passes through any other server.
+Paste an Anthropic API key into the field at the top of the page — required
+for planning, captions, and stock-photo search. Optionally paste an OpenAI
+API key too, if you want AI-generated reference images for shots you can't
+film (skip it and tick "Skip AI-generated images" under any shot list if you
+don't). Both are saved to `localStorage` in that browser and sent directly
+from the browser straight to their own provider — nothing passes through any
+other server.
 
-**Because the key lives in this file's browser storage and every request
+**Because the keys live in this file's browser storage and every request
 goes straight from the browser:**
-- Don't open this file on a shared or public computer with the key saved.
+- Don't open this file on a shared or public computer with keys saved.
 - Don't host this file anywhere public (e.g. a public URL) — anyone who
-  loads the page and has (or steals) the key can use it.
+  loads the page and has (or steals) a key can use it.
 - This is a deliberate "internal tool for one person" pattern, not something
   to turn into a shared web app without adding a real backend that holds the
-  key server-side instead.
+  keys server-side instead.
+
+### Heads-up on the OpenAI image generation
+
+OpenAI's API isn't built for direct browser calls the way Anthropic's is
+(Anthropic added an explicit opt-in header for exactly this "call it straight
+from a static HTML file" use case; OpenAI doesn't have an equivalent that I
+could confirm). I couldn't verify from this environment whether the request
+in `generateAiImage()` reaches OpenAI cleanly or gets blocked by CORS — my
+sandbox's own network policy blocked outbound calls to `api.openai.com`
+entirely, so I could only implement this and add a clear error message
+pointing at the likely cause if it fails. **Try it first before relying on
+it.** If AI image generation consistently fails with a vague network-style
+error (not an OpenAI error message with a status code), that's the CORS
+issue, and the real fix is a small server-side proxy that holds the OpenAI
+key and forwards the request — not something fixable purely in this
+single HTML file.
 
 ## Brand voice, content pillars, and guardrails are in the prompts, not a config file
 
