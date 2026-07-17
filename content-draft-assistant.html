@@ -320,7 +320,7 @@ async function callClaude(system, userMsg, options){
   }
   const body = {
     model: "claude-sonnet-5",
-    max_tokens: 1000,
+    max_tokens: 4096,
     system: system,
     messages: [{ role: "user", content: userMsg }]
   };
@@ -346,7 +346,14 @@ async function callClaude(system, userMsg, options){
   if(!textBlocks.length){ throw new Error('No response text'); }
   const lastText = textBlocks[textBlocks.length - 1].text;
   const cleaned = lastText.replace(/```json|```/g, '').trim();
-  return JSON.parse(cleaned);
+  try{
+    return JSON.parse(cleaned);
+  }catch(parseErr){
+    if(data.stop_reason === 'max_tokens'){
+      throw new Error('Response was cut off before finishing (hit the token limit). Try again, or shorten the topic/footage description.');
+    }
+    throw parseErr;
+  }
 }
 
 function escapeHtml(str){
