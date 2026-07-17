@@ -321,7 +321,7 @@ document.querySelectorAll('#formatToggle .seg-btn').forEach(btn => {
 
 const PLAN_SYSTEM_PROMPT_BASE = "You plan short-form content for Carolina Chabert, an independent jewellery designer-maker in Carouge, Geneva. Karolina films herself, speaking in first person, warm and direct, never stiff or salesy.\n\nHOOK & PACING RULES (well-documented short-form conventions):\n- Hook in the first 1-3 seconds — state the story or surprise immediately, no slow build-up.\n- Change something (shot, angle, or beat) roughly every 2-4 seconds to hold attention (video), or one clear idea per slide (carousel).\n- Include one pattern interrupt — a visual or verbal surprise partway through.\n- Build to one clear payoff moment near the end.\n\nSAFETY RULE — always include this exact flag in the flags array: \"Adapt structure and pacing only from any reference format — never copy another creator's actual dialogue or footage.\"\n\nPRODUCTION RULE — Karolina outsources gold melting, casting, and stone setting. NEVER suggest filming these steps — they do not happen at her bench and she cannot film them. She DOES polish at her own bench herself, which is a good authentic shot to suggest when relevant.\n\nWARDROBE RULE — the filming background is mostly white, sometimes light cream. Favour solid, saturated colours for contrast against that backdrop. Avoid busy patterns (they can moire on video and compete with the jewellery) and avoid pale or cream tones that blend into the background.\n\nAlso flag anything the plan assumes that needs Karolina's confirmation before filming (a price, a client detail not yet cleared, a claim).";
 
-const PLAN_SYSTEM_PROMPT_VIDEO = PLAN_SYSTEM_PROMPT_BASE + "\n\nFORMAT: short video. Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:\n{\"format\":\"video\",\"hook_line\":\"...\",\"pacing_notes\":[\"...\",\"...\"],\"script\":[{\"segment\":\"Hook (0-3s)\",\"line\":\"...\"},{\"segment\":\"Build (3-15s)\",\"line\":\"...\"},{\"segment\":\"Payoff (15-25s)\",\"line\":\"...\"}],\"shot_list\":[\"...\",\"...\",\"...\"],\"wardrobe\":\"...\",\"flags\":[\"...\"]}\n\nThe script's \"line\" fields are exactly what Karolina should say out loud, in her own first-person voice. wardrobe is one short sentence applying the wardrobe rule above to this specific piece/topic — not full styling.";
+const PLAN_SYSTEM_PROMPT_VIDEO = PLAN_SYSTEM_PROMPT_BASE + "\n\nFORMAT: short video. Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:\n{\"format\":\"video\",\"hook_line\":\"...\",\"pacing_notes\":[\"...\",\"...\"],\"script\":[{\"segment\":\"Hook (0-3s)\",\"line\":\"...\"},{\"segment\":\"Build (3-15s)\",\"line\":\"...\"},{\"segment\":\"Payoff (15-25s)\",\"line\":\"...\"}],\"shot_list\":[{\"shot\":\"...\",\"transcript\":\"...\",\"lighting\":\"...\"}],\"lighting_footnote\":\"...\" or null,\"wardrobe\":\"...\",\"flags\":[\"...\"]}\n\nThe script's \"line\" fields are exactly what Karolina should say out loud, in her own first-person voice.\n\nFor shot_list: each shot should change roughly every 2-4 seconds, so \"transcript\" is the short audio/spoken line for that shot only — not the full script. \"lighting\" describes the camera angle and lighting for that shot. If lighting and angles are similar across most or all shots, leave individual lighting fields brief and use lighting_footnote for the shared setup instead (set lighting to \"See footnote\" in that case). If lighting varies per shot, describe it fully per shot and set lighting_footnote to null.\n\nwardrobe is one short sentence applying the wardrobe rule above to this specific piece/topic — not full styling.";
 
 const PLAN_SYSTEM_PROMPT_CAROUSEL = PLAN_SYSTEM_PROMPT_BASE + "\n\nFORMAT: photo carousel (no filming, no spoken script — each slide is a still photo with on-slide text). Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:\n{\"format\":\"carousel\",\"hook_line\":\"...\",\"pacing_notes\":[\"...\",\"...\"],\"slides\":[{\"slide\":1,\"visual\":\"...\",\"caption_line\":\"...\"}],\"wardrobe\":\"...\",\"flags\":[\"...\"]}\n\nProvide 4-6 slides. \"visual\" describes what the photo shows (this doubles as the shot list — one photo per slide), \"caption_line\" is the short on-slide text overlay. wardrobe only applies if Karolina appears in any slide.";
 
@@ -474,18 +474,54 @@ function buildSkipAiCheckbox(){
   '</label>';
 }
 
+function buildShotTable(items){
+  let html = ‘<table style="width:100%;border-collapse:collapse;margin-bottom:12px;">’;
+  html += ‘<thead><tr style="border-bottom:2px solid var(--line);">’ +
+    ‘<th style="text-align:left;padding:10px 0;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--ink-soft);">Shot</th>’ +
+    ‘<th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--ink-soft);">Transcript</th>’ +
+    ‘<th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--ink-soft);">Lighting &amp; Camera</th>’ +
+    ‘<th style="text-align:center;padding:10px 0;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--ink-soft);">Reference</th>’ +
+  ‘</tr></thead><tbody>’;
+
+  items.forEach(function(item, idx){
+    shotCounter++;
+    const id = ‘shot-’ + shotCounter;
+    const shot = typeof item === ‘string’ ? item : (item.shot || ‘’);
+    const transcript = typeof item === ‘object’ ? (item.transcript || ‘’) : ‘’;
+    const lighting = typeof item === ‘object’ ? (item.lighting || ‘’) : ‘’;
+
+    html += ‘<tr style="border-bottom:1px solid var(--line);">’ +
+      ‘<td style="padding:12px 0;font-size:13.5px;color:var(--ink);">’ + escapeHtml(shot) + ‘</td>’ +
+      ‘<td style="padding:12px;font-size:13px;color:var(--ink);line-height:1.5;">’ + escapeHtml(transcript) + ‘</td>’ +
+      ‘<td style="padding:12px;font-size:12.5px;color:var(--ink-soft);line-height:1.5;">’ + escapeHtml(lighting) + ‘</td>’ +
+      ‘<td style="padding:12px 0;text-align:center;">’ +
+        ‘<label class="shot-check" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin:0;">’ +
+          ‘<input type="checkbox" class="shot-toggle" data-target="’ + id + ‘" data-text="’ + escapeHtml(shot) + ‘" style="width:14px;height:14px;margin:0;">’ +
+          ‘<span style="font-size:11px;color:var(--ink-soft);">Can\’t film</span>’ +
+        ‘</label>’ +
+      ‘</td>’ +
+    ‘</tr>’ +
+    ‘<tr><td colspan="4">’ +
+      ‘<div class="shot-imgbox" id="’ + id + ‘" style="padding:0;"></div>’ +
+    ‘</td></tr>’;
+  });
+
+  html += ‘</tbody></table>’;
+  return html;
+}
+
 function buildShotRows(items){
   return items.map(function(text){
     shotCounter++;
-    const id = 'shot-' + shotCounter;
-    return '<div class="shot-row">' +
-      '<label class="shot-check">' +
-        '<input type="checkbox" class="shot-toggle" data-target="' + id + '" data-text="' + escapeHtml(text) + '">' +
-        '<span>' + escapeHtml(text) + ' <em style="color:var(--ink-soft);font-style:normal;font-size:11.5px;">— can’t film this?</em></span>' +
-      '</label>' +
-      '<div class="shot-imgbox" id="' + id + '"></div>' +
-    '</div>';
-  }).join('');
+    const id = ‘shot-’ + shotCounter;
+    return ‘<div class="shot-row">’ +
+      ‘<label class="shot-check">’ +
+        ‘<input type="checkbox" class="shot-toggle" data-target="’ + id + ‘" data-text="’ + escapeHtml(text) + ‘">’ +
+        ‘<span>’ + escapeHtml(text) + ‘ <em style="color:var(--ink-soft);font-style:normal;font-size:11.5px;">— can’t film this?</em></span>’ +
+      ‘</label>’ +
+      ‘<div class="shot-imgbox" id="’ + id + ‘"></div>’ +
+    ‘</div>’;
+  }).join(‘’);
 }
 
 function wireShotToggles(container){
@@ -590,12 +626,25 @@ async function generatePlan(){
       bodyHtml += '<p class="section-label">Slides</p>' + buildSkipAiCheckbox() + buildShotRows((d.slides || []).map(function(s){ return 'Slide ' + s.slide + ': ' + s.visual + ' — "' + s.caption_line + '"'; }));
       fullText += "Slides:\n" + (d.slides || []).map(function(s){ return s.slide + '. ' + s.visual + ' — "' + s.caption_line + '"'; }).join('\n');
     } else {
-      bodyHtml += '<p class="section-label">Transcript — what to say</p>' + (d.script || []).map(function(s){
-        return '<div class="script-line"><span class="script-seg">' + escapeHtml(s.segment || '') + '</span><span class="script-say">' + escapeHtml(s.line || '') + '</span></div>';
-      }).join('');
-      fullText += "Script:\n" + (d.script || []).map(function(s){ return s.segment + ' — ' + s.line; }).join('\n');
-      bodyHtml += '<p class="section-label">Shot list <span style="font-weight:400;text-transform:none;letter-spacing:0;">— tick anything you can’t film</span></p>' + buildSkipAiCheckbox() + buildShotRows(d.shot_list || []);
-      fullText += "\n\nShot list:\n" + (d.shot_list || []).map(function(s){ return '- ' + s; }).join('\n');
+      bodyHtml += ‘<p class="section-label">Transcript — what to say</p>’ + (d.script || []).map(function(s){
+        return ‘<div class="script-line"><span class="script-seg">’ + escapeHtml(s.segment || ‘’) + ‘</span><span class="script-say">’ + escapeHtml(s.line || ‘’) + ‘</span></div>’;
+      }).join(‘’);
+      fullText += "Script:\n" + (d.script || []).map(function(s){ return s.segment + ‘ — ‘ + s.line; }).join(‘\n’);
+      bodyHtml += ‘<p class="section-label">Shot list <span style="font-weight:400;text-transform:none;letter-spacing:0;">— tick anything you can’t film</span></p>’ + buildSkipAiCheckbox() + buildShotTable(d.shot_list || []);
+
+      if(d.lighting_footnote){
+        bodyHtml += ‘<div class="footnote" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);text-align:left;font-size:12px;color:var(--ink-soft);">Lighting note: ‘ + escapeHtml(d.lighting_footnote) + ‘</div>’;
+      }
+
+      fullText += "\n\nShot list:\n";
+      if(Array.isArray(d.shot_list)){
+        if(typeof d.shot_list[0] === ‘object’){
+          fullText += (d.shot_list || []).map(function(s){ return s.shot + ‘ | ‘ + s.transcript + ‘ | ‘ + s.lighting; }).join(‘\n’);
+        } else {
+          fullText += (d.shot_list || []).map(function(s){ return ‘- ‘ + s; }).join(‘\n’);
+        }
+      }
+      if(d.lighting_footnote){ fullText += "\n\nLighting: " + d.lighting_footnote; }
     }
     if(d.wardrobe){
       bodyHtml += '<p class="section-label">Wardrobe</p><p class="ticket-body">' + escapeHtml(d.wardrobe) + '</p>';
