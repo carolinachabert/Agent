@@ -1,8 +1,0 @@
-.venv/
-__pycache__/
-*.pyc
-.env
-data/batches/*/
-!data/batches/.gitkeep
-data/inbox/*
-!data/inbox/.gitkeep

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carolina Chabert — Content draft assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F4EFE3; --paper-deep:#ECE4D2; --ink:#2B2924; --ink-soft:#5B5648; --line:#D8CDB2;
+    --brass:#93702F; --brass-deep:#6B4F1F; --brass-tint:#EFE1BE;
+    --garnet:#7A2E2E; --garnet-tint:#F3E1DD;
+    --sage:#4C5A3F; --sage-tint:#E4E9DA;
+    --slate:#3E5266; --slate-tint:#E1E7EC;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:920px;margin:0 auto;padding:48px 28px 80px;}
+  .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--brass-deep);font-weight:600;margin-bottom:10px;}
+  h1{font-family:'Newsreader',serif;font-weight:500;font-size:34px;margin:0 0 8px;letter-spacing:-.01em;}
+  .sub{color:var(--ink-soft);font-size:14.5px;line-height:1.6;max-width:620px;margin:0 0 30px;}
+  .stage-label{display:flex;align-items:center;gap:10px;margin:0 0 14px;}
+  .stage-num{font-family:'Newsreader',serif;font-size:13px;font-weight:500;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .stage-title{font-family:'Newsreader',serif;font-size:19px;font-weight:500;}
+  .stage-desc{font-size:13px;color:var(--ink-soft);margin:-6px 0 18px 34px;line-height:1.5;}
+  .bench{background:var(--paper-deep);border:1px solid var(--line);border-radius:14px;padding:28px;margin-bottom:26px;}
+  .field{margin-bottom:18px;}
+  .field:last-child{margin-bottom:0;}
+  .field-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:7px;}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:600;}
+  .link-btn{background:none;border:none;color:var(--brass-deep);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;}
+  .link-btn:hover{color:var(--brass);}
+  .link-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .pillars{display:flex;flex-wrap:wrap;gap:8px;}
+  .pillar-btn{font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--ink-soft);cursor:pointer;transition:all .15s ease;}
+  .pillar-btn:hover{border-color:var(--brass);}
+  .pillar-btn.active{background:var(--brass);border-color:var(--brass);color:var(--paper);}
+  .seg-toggle{display:flex;gap:8px;}
+  .seg-btn{font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink-soft);cursor:pointer;}
+  .seg-btn.active{background:var(--slate);border-color:var(--slate);color:var(--paper);}
+  textarea, input[type=text], input[type=password]{width:100%;font-family:'Inter',sans-serif;font-size:14px;padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);resize:vertical;}
+  textarea{min-height:76px;line-height:1.55;}
+  textarea:focus, input:focus{outline:none;border-color:var(--brass);}
+  .field-hint{font-size:12px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .go-btn{font-family:'Inter',sans-serif;font-weight:600;font-size:14px;background:var(--ink);color:var(--paper);border:none;padding:13px 24px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
+  .go-btn:hover{background:var(--brass-deep);}
+  .go-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .go-btn.secondary{background:var(--slate);font-size:12.5px;padding:7px 13px;}
+  .go-btn.secondary:hover{background:#2c3a49;}
+  .go-row{display:flex;align-items:center;gap:14px;margin-top:22px;}
+  .status{font-size:13px;color:var(--ink-soft);}
+  .status.ok{color:var(--sage);}
+  .status.warn{color:var(--garnet);}
+  .results{display:flex;flex-direction:column;gap:18px;margin-bottom:36px;}
+  .ticket{background:var(--paper-deep);border:1px solid var(--line);border-radius:12px;padding:22px 24px;position:relative;}
+  .ticket::before{content:'';position:absolute;left:-1px;top:24px;width:14px;height:14px;background:var(--paper);border:1px solid var(--line);border-radius:50%;}
+  .ticket-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+  .ticket-pillar{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--brass-deep);background:var(--brass-tint);padding:4px 10px;border-radius:999px;display:inline-block;}
+  .ticket-hook{font-family:'Newsreader',serif;font-size:19px;font-weight:500;margin:0 0 10px;line-height:1.35;}
+  .ticket-body{font-size:14px;line-height:1.65;color:var(--ink);white-space:pre-wrap;margin:0 0 14px;}
+  .ticket-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .tag{font-size:12px;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);padding:5px 10px;border-radius:7px;}
+  .cta-line{font-size:13.5px;font-weight:500;color:var(--sage);background:var(--sage-tint);padding:9px 12px;border-radius:7px;margin-bottom:8px;}
+  .banner-line{font-size:13px;color:var(--slate);background:var(--slate-tint);padding:9px 12px;border-radius:7px;margin-bottom:8px;}
+  .link-line{font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;}
+  .link-line code{background:var(--paper);padding:2px 6px;border-radius:5px;border:1px solid var(--line);}
+  .flags{display:flex;flex-direction:column;gap:6px;margin-top:4px;}
+  .flag{font-size:12.5px;color:var(--garnet);background:var(--garnet-tint);padding:8px 11px;border-radius:7px;display:flex;gap:7px;align-items:flex-start;}
+  .flag-dot{flex-shrink:0;margin-top:5px;width:5px;height:5px;border-radius:50%;background:var(--garnet);}
+  .copy-btn{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;background:none;border:1px solid var(--line);color:var(--ink-soft);padding:6px 12px;border-radius:7px;cursor:pointer;margin-top:12px;margin-right:8px;}
+  .copy-btn:hover{border-color:var(--brass);color:var(--brass-deep);}
+  .section-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--ink-soft);margin:16px 0 8px;}
+  .section-label:first-child{margin-top:0;}
+  .script-line{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .script-line:last-child{border-bottom:none;}
+  .script-seg{flex-shrink:0;width:110px;font-size:11.5px;color:var(--slate);background:var(--slate-tint);padding:3px 8px;border-radius:6px;height:fit-content;}
+  .script-say{font-size:14px;line-height:1.55;color:var(--ink);}
+  .shot-row{padding:9px 0;border-bottom:1px solid var(--line);}
+  .shot-row:last-child{border-bottom:none;}
+  .shot-check{display:flex;align-items:flex-start;gap:9px;cursor:pointer;}
+  .shot-check input{margin-top:3px;width:15px;height:15px;accent-color:var(--slate);cursor:pointer;flex-shrink:0;}
+  .shot-check span{font-size:13.5px;line-height:1.55;color:var(--ink);}
+  .shot-num{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--brass-tint);color:var(--brass-deep);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+  .shot-imgbox{margin-top:8px;margin-left:25px;display:none;}
+  .shot-imgbox.open{display:block;}
+  .ref-card{background:var(--slate-tint);border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:36px;}
+  .ref-card-title{font-family:'Newsreader',serif;font-size:16px;font-weight:500;margin:0 0 4px;color:var(--slate);}
+  .ref-card-note{font-size:12px;color:var(--ink-soft);margin:0 0 14px;line-height:1.5;}
+  .ref-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .ref-item{font-size:13px;line-height:1.6;color:var(--ink);}
+  .ref-item strong{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--slate);margin-bottom:3px;}
+  .img-results{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+  .img-result{font-size:12.5px;padding:8px 10px;background:var(--paper);border:1px solid var(--line);border-radius:8px;}
+  .img-result a{color:var(--brass-deep);font-weight:600;text-decoration:none;}
+  .img-result a:hover{text-decoration:underline;}
+  .img-result .src-tag{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);margin-right:8px;}
+  .img-note{font-size:12px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
+  .suggest-box{background:var(--brass-tint);border:1px solid var(--brass);border-radius:10px;padding:16px 18px;margin-top:10px;}
+  .suggest-box .sb-name{font-family:'Newsreader',serif;font-size:16px;font-weight:500;margin:0 0 4px;color:var(--brass-deep);}
+  .suggest-box .sb-desc{font-size:13px;line-height:1.5;color:var(--ink);margin:0 0 10px;}
+  .suggest-box .sb-note{font-size:11.5px;color:var(--ink-soft);margin:0 0 12px;font-style:italic;}
+  .capline-list{display:flex;flex-direction:column;gap:0;}
+  .capline{display:flex;align-items:baseline;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);}
+  .capline:last-child{border-bottom:none;}
+  .capline-num{flex-shrink:0;width:24px;font-size:11px;color:var(--ink-soft);}
+  .capline-text{font-size:15px;line-height:1.4;}
+  .capline-text strong{color:var(--brass-deep);}
+  .footnote{font-size:12px;color:var(--ink-soft);text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid var(--line);line-height:1.6;}
+  .empty{text-align:center;padding:36px 20px;color:var(--ink-soft);font-size:13.5px;border:1px dashed var(--line);border-radius:12px;margin-bottom:36px;}
+  .error{background:var(--garnet-tint);color:var(--garnet);font-size:13px;padding:12px 14px;border-radius:9px;margin-top:14px;}
+  .divider{height:1px;background:var(--line);margin:40px 0;}
+  .key-card{background:var(--brass-tint);border:1px solid var(--brass);border-radius:12px;padding:18px 22px;margin-bottom:30px;}
+  @media (max-width:600px){ .row2{grid-template-columns:1fr;} .ref-grid{grid-template-columns:1fr;} .script-line{flex-direction:column;gap:4px;} .script-seg{width:fit-content;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Carolina Chabert — internal tool</div>
+  <h1>Content draft assistant</h1>
+  <p class="sub">Plans a shoot, then drafts captions once the footage exists. Nothing here posts anywhere — every draft is for review before it goes near Instagram.</p>
+
+  <div class="key-card">
+    <div class="field" style="margin-bottom:0;">
+      <div class="field-top">
+        <label>Anthropic API key</label>
+        <span class="status" id="keyStatus"></span>
+      </div>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+      <div class="field-hint">Stored only in this browser (localStorage) and sent directly from your browser to api.anthropic.com — it never passes through any other server. Don't open this file on a shared or public computer with your key saved, and don't host this page anywhere public.</div>
+    </div>
+  </div>
+
+  <div class="stage-label"><span class="stage-num">1</span><span class="stage-title">Plan the shoot</span></div>
+  <p class="stage-desc">Before filming. Produces a script or slide list, hook and pacing notes, a shot list, and wardrobe guidance — Karolina approves this before she films.</p>
+
+  <div class="bench">
+    <div class="field">
+      <label>Content pillar</label>
+      <div class="pillars" id="pillarButtonsPlan"></div>
+    </div>
+    <div class="field">
+      <label>Format</label>
+      <div class="seg-toggle" id="formatToggle">
+        <button class="seg-btn active" data-format="video">Video</button>
+        <button class="seg-btn" data-format="carousel">Carousel</button>
+      </div>
+      <div class="field-hint">Carousels perform comparably to video and take less filming time — a reasonable default when there's nothing to film.</div>
+    </div>
+    <div class="field">
+      <div class="field-top">
+        <label>What this piece of content is about</label>
+        <button class="link-btn" id="suggestBtn" onclick="suggestPiece()">No idea? Suggest a piece from my collection</button>
+      </div>
+      <textarea id="topic" placeholder="e.g. Resetting a client's grandmother's old diamond into a new pendant — she'd never worn the original ring."></textarea>
+      <div class="field-hint">A sentence or two — the idea, story, or piece this batch is built around.</div>
+      <div id="suggestResult"></div>
+    </div>
+    <div class="go-row">
+      <button class="go-btn" id="planBtn" onclick="generatePlan()">Draft shoot plan</button>
+      <span class="status" id="planStatus"></span>
+    </div>
+  </div>
+
+  <div class="results" id="planResults">
+    <div class="empty">The shoot plan will appear here once generated. Anything in the shot list you can't film can be flagged after — you don't know what's needed to shoot until you see the plan.</div>
+  </div>
+
+  <div class="ref-card">
+    <p class="ref-card-title">Lighting &amp; camera angles — reference, not generated</p>
+    <p class="ref-card-note">General one-time tips. This is physical, hands-on setup — it's Karolina's execution every time, not a repeating automated step.</p>
+    <div class="ref-grid">
+      <div class="ref-item"><strong>Lighting</strong>Soft, diffused daylight near a window. Avoid direct overhead light — it throws hard shadows across stones and casts glare on polished metal.</div>
+      <div class="ref-item"><strong>Jewellery angle</strong>Tilt the piece slightly rather than flat-on, so facets catch light instead of reflecting the camera or ceiling.</div>
+      <div class="ref-item"><strong>Talking-head framing</strong>Camera at eye or chest height, not looking up or down. Keep the bench or boutique visible in the background for context.</div>
+      <div class="ref-item"><strong>Stability</strong>A small tripod or propped phone beats handheld for anything with fine detail — even slight shake reads badly on close-up jewellery shots.</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="stage-label"><span class="stage-num">2</span><span class="stage-title">Draft captions</span></div>
+  <p class="stage-desc">After filming. Turns the footage into caption drafts, checked against brand voice rules — Karolina approves before anything posts.</p>
+
+  <div class="bench">
+    <div class="field">
+      <label>Content pillar</label>
+      <div class="pillars" id="pillarButtonsCaption"></div>
+    </div>
+    <div class="field">
+      <label>What happens in the footage</label>
+      <textarea id="footage" placeholder="e.g. Client's grandmother's engagement ring, old worn gold band with a loose diamond — I'm shown resetting the same diamond into a new pendant on the bench, then the finished piece on a chain."></textarea>
+      <div class="field-hint">A sentence or two is enough — what's shown, what happens, roughly in order.</div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Piece or material (optional)</label>
+        <input type="text" id="piece" placeholder="e.g. 9ct yellow gold, resized diamond">
+      </div>
+      <div class="field">
+        <label>Anything to avoid mentioning</label>
+        <input type="text" id="avoid" placeholder="e.g. no price yet, client name confidential">
+      </div>
+    </div>
+    <div class="go-row">
+      <button class="go-btn" id="captionBtn" onclick="generateCaptions()">Draft captions</button>
+      <span class="status" id="captionStatus"></span>
+    </div>
+  </div>
+
+  <div class="results" id="captionResults">
+    <div class="empty">Caption drafts will appear here once generated.</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="stage-label"><span class="stage-num">3</span><span class="stage-title">Format on-screen captions</span></div>
+  <p class="stage-desc">After the real video is recorded — she'll naturally adapt the spoken script, which is fine. Play the finished video to Claude in voice mode in a normal chat to capture exactly what was said, then paste that final transcript here. This does not rewrite her words — only breaks them into short on-screen lines and flags words to bold, for her to apply manually in CapCut.</p>
+
+  <div class="bench">
+    <div class="field">
+      <label>Final transcript — exactly what she actually said</label>
+      <textarea id="finalTranscript" placeholder="Paste the real, final spoken transcript here — captured via Claude voice mode after filming, not the original plan."></textarea>
+      <div class="field-hint">Paste it as spoken, including anything that changed from the original plan. Wording is never altered — only broken into lines.</div>
+    </div>
+    <div class="go-row">
+      <button class="go-btn" id="formatBtn" onclick="formatCaptions()">Format captions</button>
+      <span class="status" id="formatStatus"></span>
+    </div>
+  </div>
+
+  <div class="results" id="formatResults">
+    <div class="empty">Formatted caption lines will appear here once generated.</div>
+  </div>
+
+  <div class="footnote">Every draft is checked against the Brand Bible's voice rules before it's shown here.<br>Karolina reviews and approves each one before it goes anywhere near Instagram.</div>
+</div>
+
+<script>
+const PILLARS = ["Founder story","Bespoke story","Transformation","Education","Behind the scenes","Direct offer","Inspiration"];
+let activePillarPlan = "Transformation";
+let activePillarCaption = "Transformation";
+let activeFormat = "video";
+let shotCounter = 0;
+
+const API_KEY_STORAGE_KEY = 'contentAssistant_anthropicApiKey';
+function getApiKey(){ return localStorage.getItem(API_KEY_STORAGE_KEY) || ''; }
+function setApiKey(k){ localStorage.setItem(API_KEY_STORAGE_KEY, k); }
+
+const apiKeyInput = document.getElementById('apiKeyInput');
+const keyStatus = document.getElementById('keyStatus');
+apiKeyInput.value = getApiKey();
+updateKeyStatus();
+apiKeyInput.addEventListener('change', function(){ setApiKey(apiKeyInput.value.trim()); updateKeyStatus(); });
+apiKeyInput.addEventListener('blur', function(){ setApiKey(apiKeyInput.value.trim()); updateKeyStatus(); });
+function updateKeyStatus(){
+  if(getApiKey()){
+    keyStatus.textContent = 'Saved in this browser';
+    keyStatus.className = 'status ok';
+  } else {
+    keyStatus.textContent = 'Required before drafting';
+    keyStatus.className = 'status warn';
+  }
+}
+
+function buildPillarButtons(containerId, getActive, setActive){
+  const wrap = document.getElementById(containerId);
+  PILLARS.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'pillar-btn' + (p === getActive() ? ' active' : '');
+    b.textContent = p;
+    b.onclick = () => {
+      setActive(p);
+      wrap.querySelectorAll('.pillar-btn').forEach(el => el.classList.remove('active'));
+      b.classList.add('active');
+    };
+    wrap.appendChild(b);
+  });
+}
+buildPillarButtons('pillarButtonsPlan', () => activePillarPlan, (p) => activePillarPlan = p);
+buildPillarButtons('pillarButtonsCaption', () => activePillarCaption, (p) => activePillarCaption = p);
+
+document.querySelectorAll('#formatToggle .seg-btn').forEach(btn => {
+  btn.onclick = () => {
+    activeFormat = btn.dataset.format;
+    document.querySelectorAll('#formatToggle .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+
+const PLAN_SYSTEM_PROMPT_BASE = "You plan short-form content for Carolina Chabert, an independent jewellery designer-maker in Carouge, Geneva. Karolina films herself, speaking in first person, warm and direct, never stiff or salesy.\n\nHOOK & PACING RULES (well-documented short-form conventions):\n- Hook in the first 1-3 seconds — state the story or surprise immediately, no slow build-up.\n- Change something (shot, angle, or beat) roughly every 2-4 seconds to hold attention (video), or one clear idea per slide (carousel).\n- Include one pattern interrupt — a visual or verbal surprise partway through.\n- Build to one clear payoff moment near the end.\n\nSAFETY RULE — always include this exact flag in the flags array: \"Adapt structure and pacing only from any reference format — never copy another creator's actual dialogue or footage.\"\n\nPRODUCTION RULE — Karolina outsources gold melting, casting, and stone setting. NEVER suggest filming these steps — they do not happen at her bench and she cannot film them. She DOES polish at her own bench herself, which is a good authentic shot to suggest when relevant.\n\nWARDROBE RULE — the filming background is mostly white, sometimes light cream. Favour solid, saturated colours for contrast against that backdrop. Avoid busy patterns (they can moire on video and compete with the jewellery) and avoid pale or cream tones that blend into the background.\n\nAlso flag anything the plan assumes that needs Karolina's confirmation before filming (a price, a client detail not yet cleared, a claim).";
+
+const PLAN_SYSTEM_PROMPT_VIDEO = PLAN_SYSTEM_PROMPT_BASE + "\n\nFORMAT: short video. Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:\n{\"format\":\"video\",\"hook_line\":\"...\",\"pacing_notes\":[\"...\",\"...\"],\"script\":[{\"segment\":\"Hook (0-3s)\",\"line\":\"...\"},{\"segment\":\"Build (3-15s)\",\"line\":\"...\"},{\"segment\":\"Payoff (15-25s)\",\"line\":\"...\"}],\"shot_list\":[\"...\",\"...\",\"...\"],\"wardrobe\":\"...\",\"flags\":[\"...\"]}\n\nThe script's \"line\" fields are exactly what Karolina should say out loud, in her own first-person voice. wardrobe is one short sentence applying the wardrobe rule above to this specific piece/topic — not full styling.";
+
+const PLAN_SYSTEM_PROMPT_CAROUSEL = PLAN_SYSTEM_PROMPT_BASE + "\n\nFORMAT: photo carousel (no filming, no spoken script — each slide is a still photo with on-slide text). Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:\n{\"format\":\"carousel\",\"hook_line\":\"...\",\"pacing_notes\":[\"...\",\"...\"],\"slides\":[{\"slide\":1,\"visual\":\"...\",\"caption_line\":\"...\"}],\"wardrobe\":\"...\",\"flags\":[\"...\"]}\n\nProvide 4-6 slides. \"visual\" describes what the photo shows (this doubles as the shot list — one photo per slide), \"caption_line\" is the short on-slide text overlay. wardrobe only applies if Karolina appears in any slide.";
+
+const CAPTION_SYSTEM_PROMPT = "You write Instagram captions for Carolina Chabert, an independent jewellery designer-maker in Carouge, Geneva. Karolina speaks in first person (\"I create...\", \"In my boutique-atelier...\").\n\nVOICE RULES:\n- Warm, personal, direct, knowledgeable. Never stiff or corporate.\n- NEVER use: \"timeless elegance\", \"exquisite craftsmanship\", \"where dreams become reality\", \"a symphony of brilliance\", \"luxury redefined\", \"elevate your style\", or excessive \"stunning/gorgeous/breathtaking\".\n- Never invent a price, deadline, or certification.\n- Never call lab-grown diamonds \"fake\".\n\nCTA RULE — Instagram captions cannot contain clickable links, and comment-trigger CTAs (\"comment RING for info\") are unreliable and visibly empty at low comment volumes, so do NOT use them. Instead:\n- on_screen_banner: short on-screen text overlay reinforcing the CTA for muted viewers, e.g. \"Book a consultation — link in bio\"\n- link_label: what the bio link should be labelled, echoing the exact action (e.g. \"Book a consultation\", not \"Website\")\n- link_path: the specific destination, e.g. \"/contact\" — never just the homepage\n\nCTA STRENGTH MUST MATCH THE PILLAR:\n- Founder story: soft or none, e.g. \"Follow along for more of the journey.\" — on_screen_banner and link fields can be null.\n- Bespoke story: medium — invite people with their own idea to reach out, e.g. \"Every piece starts with a story — have one of your own? DM me.\" — include on_screen_banner and link fields.\n- Transformation: \"Have jewellery sitting unworn in a drawer? DM me to talk about giving it a new life.\" — include on_screen_banner and link fields.\n- Education: usually none, or \"Questions? Ask below.\" — on_screen_banner and link fields can be null.\n- Behind the scenes: usually none — this is pure process/craft content. on_screen_banner and link fields can be null.\n- Direct offer: strongest CTA — \"DM me to book a complimentary consultation in my boutique-atelier in Carouge.\" — always include on_screen_banner and link fields.\n- Inspiration: soft engagement, e.g. \"Which one's your favourite?\" — on_screen_banner and link fields can be null.\n\nReturn ONLY valid JSON, no markdown fences, no preamble, in this exact shape:\n{\"drafts\":[{\"hook\":\"...\",\"body\":\"...\",\"cta\":\"...\",\"on_screen_banner\":\"...\" or null,\"link_label\":\"...\" or null,\"link_path\":\"...\" or null,\"hashtags\":[\"...\",\"...\"],\"flags\":[\"...\"]}]}\n\nProvide exactly 2 drafts. \"flags\" is a list of anything the caption assumes that Karolina must confirm before posting — empty array if nothing to confirm. Keep each body under 60 words.";
+
+const CAPTION_FORMAT_SYSTEM_PROMPT = "You format an already-finalised, actually-spoken video transcript into short on-screen subtitle lines for Carolina Chabert's Instagram/TikTok videos, matching the style CapCut auto-captions produce.\n\nRULES:\n- NEVER rephrase, correct, tidy, or improve the wording. Use the transcript exactly as given, split only.\n- Break it into short chunks of roughly 3-4 words each, at natural speech/phrase boundaries — never mid-word, never an awkward mid-phrase cut.\n- For each chunk, choose 0-2 words worth bolding for emphasis on screen — usually the most important noun, number, or emotionally resonant word. Not every chunk needs a bold word.\n- Preserve the original order and every word of the transcript — the split lines, concatenated, must reproduce the input exactly.\n\nReturn ONLY valid JSON, no markdown fences, no preamble:\n{\"lines\":[{\"text\":\"chunk text here\",\"bold_words\":[\"word1\"]}]}";
+
+const IMAGE_SYSTEM_PROMPT = "You find real, specific reference photo pages on Unsplash, Pexels, and Pixabay for a jewellery brand's content planning. Use web search. Search each of the three sites separately for the given topic (e.g. site:unsplash.com <topic>). Return ONLY valid JSON, no markdown fences, no preamble:\n{\"results\":[{\"source\":\"Unsplash\",\"title\":\"...\",\"url\":\"...\"}],\"note\":\"...\"}\n\nOnly include a result if you found a real URL from that exact domain via search — do not invent URLs. If a source has no good result, omit it from the array rather than guessing. \"note\" is one short honest sentence — e.g. flag if results are thin, or if none were found at all.";
+
+async function callClaude(system, userMsg, options){
+  options = options || {};
+  const apiKey = getApiKey();
+  if(!apiKey){
+    throw new Error("Add your Anthropic API key above first.");
+  }
+  if(options.useDrive){
+    // Honest limitation: a real Google Drive search here needs a configured
+    // remote MCP connector (a live server URL plus an OAuth token for
+    // Carolina's Drive) wired into the request below. That connector isn't
+    // set up in this file — wire it into the `mcp_servers` block here once
+    // you have one, following https://docs.anthropic.com/en/docs/agents-and-tools/mcp-connector.
+    // Left disabled rather than pointed at a guessed endpoint that would
+    // silently fail or worse, look like it worked.
+    throw new Error("Google Drive search isn't connected yet — this needs a real Drive MCP connector + OAuth token wired into callClaude(). Describe the piece manually below instead.");
+  }
+  const body = {
+    model: "claude-sonnet-5",
+    max_tokens: 1000,
+    system: system,
+    messages: [{ role: "user", content: userMsg }]
+  };
+  if(options.useWebSearch){
+    body.tools = [{ type: "web_search_20250305", name: "web_search" }];
+  }
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify(body)
+  });
+  if(!response.ok){
+    const errText = await response.text().catch(function(){ return ''; });
+    throw new Error("API error " + response.status + (errText ? ': ' + errText.slice(0, 200) : ''));
+  }
+  const data = await response.json();
+  const textBlocks = (data.content || []).filter(function(b){ return b.type === 'text'; });
+  if(!textBlocks.length){ throw new Error('No response text'); }
+  const lastText = textBlocks[textBlocks.length - 1].text;
+  const cleaned = lastText.replace(/```json|```/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.innerText = str == null ? '' : str;
+  return d.innerHTML;
+}
+
+function flagsHtml(flags){
+  if(!flags || !flags.length){ return ''; }
+  return '<div class="flags">' + flags.map(function(f){
+    return '<div class="flag"><span class="flag-dot"></span>' + escapeHtml(f) + '</div>';
+  }).join('') + '</div>';
+}
+
+async function suggestPiece(){
+  const btn = document.getElementById('suggestBtn');
+  const resultEl = document.getElementById('suggestResult');
+  btn.disabled = true;
+  btn.textContent = 'Searching the collection…';
+  resultEl.innerHTML = '';
+
+  try{
+    const d = await callClaude(null, "Suggest one piece from the permanent collection for content.", { useDrive: true });
+    const box = document.createElement('div');
+    box.className = 'suggest-box';
+    box.innerHTML =
+      '<p class="sb-name">' + escapeHtml(d.name || 'Untitled piece') + '</p>' +
+      '<p class="sb-desc">' + escapeHtml(d.description || '') + '</p>' +
+      '<p class="sb-note">' + escapeHtml(d.source_note || '') + '</p>' +
+      '<label style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:600;margin-bottom:6px;">What’s the meaning or story behind this piece?</label>' +
+      '<textarea id="meaningInput" style="margin-bottom:10px;" placeholder="e.g. Inspired by the branches on my grandmother’s farm, made for someone who wanted something organic rather than symmetrical."></textarea>' +
+      '<button class="go-btn secondary" id="useTopicBtn">Use this as my topic</button>';
+    resultEl.appendChild(box);
+    document.getElementById('useTopicBtn').onclick = function(){
+      const meaning = document.getElementById('meaningInput').value.trim();
+      const topicEl = document.getElementById('topic');
+      topicEl.value = (d.name || 'This piece') + ' — ' + (d.description || '') + (meaning ? '. Meaning: ' + meaning : '');
+      resultEl.innerHTML = '';
+      topicEl.focus();
+    };
+  }catch(err){
+    resultEl.innerHTML = '<div class="error">Could not search the collection right now (' + escapeHtml(err.message) + '). You can still describe a topic manually above.</div>';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'No idea? Suggest a piece from my collection';
+  }
+}
+
+function buildShotRows(items){
+  return items.map(function(text){
+    shotCounter++;
+    const id = 'shot-' + shotCounter;
+    return '<div class="shot-row">' +
+      '<label class="shot-check">' +
+        '<input type="checkbox" class="shot-toggle" data-target="' + id + '" data-text="' + escapeHtml(text) + '">' +
+        '<span>' + escapeHtml(text) + ' <em style="color:var(--ink-soft);font-style:normal;font-size:11.5px;">— can’t film this?</em></span>' +
+      '</label>' +
+      '<div class="shot-imgbox" id="' + id + '"></div>' +
+    '</div>';
+  }).join('');
+}
+
+function wireShotToggles(container){
+  container.querySelectorAll('.shot-toggle').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      toggleShotImg(cb.dataset.target, cb.checked, cb.dataset.text);
+    });
+  });
+}
+
+async function toggleShotImg(boxId, checked, shotText){
+  const box = document.getElementById(boxId);
+  if(!checked){ box.classList.remove('open'); box.innerHTML=''; return; }
+  box.classList.add('open');
+  box.innerHTML = '<div class="img-note">Searching Unsplash, Pexels, and Pixabay…</div>';
+  try{
+    const d = await callClaude(IMAGE_SYSTEM_PROMPT, "Topic: " + shotText, { useWebSearch: true });
+    const results = d.results || [];
+    if(results.length){
+      box.innerHTML = '<div class="img-results">' + results.map(function(r){
+        return '<div class="img-result"><span class="src-tag">' + escapeHtml(r.source) + '</span><a href="' + encodeURI(r.url) + '" target="_blank" rel="noopener">' + escapeHtml(r.title || r.url) + '</a></div>';
+      }).join('') + '</div><div class="img-note">Open the link, confirm it is not watermarked, and download from the source site directly.</div>';
+    } else {
+      box.innerHTML = '<div class="img-note">No clean results found for this shot. There is no built-in AI image generation in this tool — describe the shot directly to Claude in chat instead, which has real-time image search.</div>';
+    }
+  }catch(err){
+    box.innerHTML = '<div class="error">Image search failed (' + escapeHtml(err.message) + ').</div>';
+  }
+}
+
+async function generatePlan(){
+  const topic = document.getElementById('topic').value.trim();
+  const resultsEl = document.getElementById('planResults');
+  const statusEl = document.getElementById('planStatus');
+  const btn = document.getElementById('planBtn');
+
+  if(!topic){
+    resultsEl.innerHTML = '<div class="error">Add a line about what this piece of content is about first — or use \'Suggest a piece from my collection\' above.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.textContent = 'Planning…';
+  resultsEl.innerHTML = '<div class="empty">Drafting the shoot plan…</div>';
+
+  const userMsg = "Pillar: " + activePillarPlan + "\nTopic: " + topic;
+  const systemPrompt = activeFormat === 'carousel' ? PLAN_SYSTEM_PROMPT_CAROUSEL : PLAN_SYSTEM_PROMPT_VIDEO;
+
+  try{
+    const d = await callClaude(systemPrompt, userMsg, {});
+    const pacingHtml = (d.pacing_notes || []).map(function(p){ return '<span class="tag">' + escapeHtml(p) + '</span>'; }).join('');
+
+    let bodyHtml = '';
+    let fullText = "Hook: " + (d.hook_line || '') + "\n\n";
+    if(d.format === 'carousel'){
+      bodyHtml += '<p class="section-label">Slides</p>' + buildShotRows((d.slides || []).map(function(s){ return 'Slide ' + s.slide + ': ' + s.visual + ' — "' + s.caption_line + '"'; }));
+      fullText += "Slides:\n" + (d.slides || []).map(function(s){ return s.slide + '. ' + s.visual + ' — "' + s.caption_line + '"'; }).join('\n');
+    } else {
+      bodyHtml += '<p class="section-label">Transcript — what to say</p>' + (d.script || []).map(function(s){
+        return '<div class="script-line"><span class="script-seg">' + escapeHtml(s.segment || '') + '</span><span class="script-say">' + escapeHtml(s.line || '') + '</span></div>';
+      }).join('');
+      fullText += "Script:\n" + (d.script || []).map(function(s){ return s.segment + ' — ' + s.line; }).join('\n');
+      bodyHtml += '<p class="section-label">Shot list <span style="font-weight:400;text-transform:none;letter-spacing:0;">— tick anything you can’t film</span></p>' + buildShotRows(d.shot_list || []);
+      fullText += "\n\nShot list:\n" + (d.shot_list || []).map(function(s){ return '- ' + s; }).join('\n');
+    }
+    if(d.wardrobe){
+      bodyHtml += '<p class="section-label">Wardrobe</p><p class="ticket-body">' + escapeHtml(d.wardrobe) + '</p>';
+      fullText += "\n\nWardrobe: " + d.wardrobe;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'ticket';
+    card.innerHTML =
+      '<div class="ticket-top"><span class="ticket-pillar">' + escapeHtml(activePillarPlan) + ' · ' + (d.format === 'carousel' ? 'carousel plan' : 'shoot plan') + '</span></div>' +
+      '<p class="ticket-hook">' + escapeHtml(d.hook_line || '') + '</p>' +
+      '<div class="ticket-meta">' + pacingHtml + '</div>' +
+      bodyHtml +
+      flagsHtml(d.flags) +
+      '<button class="copy-btn" onclick="copyPlan(this)">Copy plan</button>';
+    card.dataset.fullText = fullText;
+
+    resultsEl.innerHTML = '';
+    resultsEl.appendChild(card);
+    wireShotToggles(card);
+    statusEl.textContent = 'Done — review before filming.';
+  }catch(err){
+    resultsEl.innerHTML = '<div class="error">Could not generate the plan right now (' + escapeHtml(err.message) + '). Try again.</div>';
+    statusEl.textContent = '';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function generateCaptions(){
+  const footage = document.getElementById('footage').value.trim();
+  const piece = document.getElementById('piece').value.trim();
+  const avoid = document.getElementById('avoid').value.trim();
+  const resultsEl = document.getElementById('captionResults');
+  const statusEl = document.getElementById('captionStatus');
+  const btn = document.getElementById('captionBtn');
+
+  if(!footage){
+    resultsEl.innerHTML = '<div class="error">Add a line about what happens in the footage first — that is what the drafts are built from.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.textContent = 'Drafting…';
+  resultsEl.innerHTML = '<div class="empty">Drafting on-brand captions…</div>';
+
+  let userMsg = "Pillar: " + activePillarCaption + "\nFootage: " + footage;
+  if(piece){ userMsg += "\nPiece/material: " + piece; }
+  if(avoid){ userMsg += "\nAvoid mentioning: " + avoid; }
+
+  try{
+    const parsed = await callClaude(CAPTION_SYSTEM_PROMPT, userMsg, {});
+    resultsEl.innerHTML = '';
+    parsed.drafts.forEach(function(d, i){
+      const card = document.createElement('div');
+      card.className = 'ticket';
+      const hashtagsHtml = (d.hashtags || []).map(function(h){ return '<span class="tag">#' + escapeHtml(h.replace(/^#/,'')) + '</span>'; }).join('');
+      const bannerHtml = d.on_screen_banner ? '<div class="banner-line">On-screen banner: ' + escapeHtml(d.on_screen_banner) + '</div>' : '';
+      const linkHtml = d.link_label ? '<div class="link-line">Bio link label: <code>' + escapeHtml(d.link_label) + '</code> → <code>' + escapeHtml(d.link_path || '') + '</code></div>' : '';
+      card.innerHTML =
+        '<div class="ticket-top"><span class="ticket-pillar">' + escapeHtml(activePillarCaption) + ' · draft ' + (i+1) + '</span></div>' +
+        '<p class="ticket-hook">' + escapeHtml(d.hook || '') + '</p>' +
+        '<p class="ticket-body">' + escapeHtml(d.body || '') + '</p>' +
+        (d.cta ? '<div class="cta-line">' + escapeHtml(d.cta) + '</div>' : '') +
+        bannerHtml + linkHtml +
+        '<div class="ticket-meta">' + hashtagsHtml + '</div>' +
+        flagsHtml(d.flags) +
+        '<button class="copy-btn" onclick="copyDraft(this)">Copy caption</button>';
+      const hashtagText = (d.hashtags || []).map(function(h){ return '#' + h.replace(/^#/,''); }).join(' ');
+      card.dataset.fullText = (d.hook || '') + "\n\n" + (d.body || '') + "\n\n" + (d.cta || '') +
+        (d.on_screen_banner ? "\n\nBanner: " + d.on_screen_banner : '') +
+        (d.link_label ? "\nBio link: " + d.link_label + ' -> ' + d.link_path : '') +
+        "\n\n" + hashtagText;
+      resultsEl.appendChild(card);
+    });
+    statusEl.textContent = 'Done — review before posting.';
+  }catch(err){
+    resultsEl.innerHTML = '<div class="error">Could not generate drafts right now (' + escapeHtml(err.message) + '). Try again.</div>';
+    statusEl.textContent = '';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function formatCaptions(){
+  const transcript = document.getElementById('finalTranscript').value.trim();
+  const resultsEl = document.getElementById('formatResults');
+  const statusEl = document.getElementById('formatStatus');
+  const btn = document.getElementById('formatBtn');
+
+  if(!transcript){
+    resultsEl.innerHTML = '<div class="error">Paste the final spoken transcript first.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.textContent = 'Formatting…';
+  resultsEl.innerHTML = '<div class="empty">Splitting into on-screen lines…</div>';
+
+  try{
+    const d = await callClaude(CAPTION_FORMAT_SYSTEM_PROMPT, transcript, {});
+    const lines = d.lines || [];
+
+    const linesHtml = lines.map(function(l, i){
+      let text = escapeHtml(l.text || '');
+      (l.bold_words || []).forEach(function(w){
+        const esc = escapeHtml(w);
+        const re = new RegExp('(' + esc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'i');
+        text = text.replace(re, '<strong>$1</strong>');
+      });
+      return '<div class="capline"><span class="capline-num">' + (i+1) + '</span><span class="capline-text">' + text + '</span></div>';
+    }).join('');
+
+    const card = document.createElement('div');
+    card.className = 'ticket';
+    card.innerHTML =
+      '<div class="ticket-top"><span class="ticket-pillar">' + lines.length + ' caption lines</span></div>' +
+      '<div class="capline-list">' + linesHtml + '</div>' +
+      '<button class="copy-btn" onclick="copyDraft(this)">Copy lines</button>';
+
+    card.dataset.fullText = lines.map(function(l, i){
+      const bolded = (l.bold_words && l.bold_words.length) ? '  [bold: ' + l.bold_words.join(', ') + ']' : '';
+      return (i+1) + '. ' + l.text + bolded;
+    }).join('\n');
+
+    resultsEl.innerHTML = '';
+    resultsEl.appendChild(card);
+    statusEl.textContent = 'Done — apply bold manually in CapCut.';
+  }catch(err){
+    resultsEl.innerHTML = '<div class="error">Could not format captions right now (' + escapeHtml(err.message) + '). Try again.</div>';
+    statusEl.textContent = '';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function copyPlan(btn){
+  const card = btn.closest('.ticket');
+  navigator.clipboard.writeText(card.dataset.fullText).then(function(){
+    const orig = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(function(){ btn.textContent = orig; }, 1500);
+  });
+}
+
+function copyDraft(btn){
+  const card = btn.closest('.ticket');
+  navigator.clipboard.writeText(card.dataset.fullText).then(function(){
+    const orig = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(function(){ btn.textContent = orig; }, 1500);
+  });
+}
+</script>
+</body>
+</html>

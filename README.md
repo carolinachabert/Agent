@@ -1,112 +1,102 @@
-# Content Pipeline Agent
+# Content draft assistant
 
-A Claude-powered assistant for a solo creator's Instagram/TikTok batch
-workflow. It automates the drafting steps, and hard-blocks the one step that
-should never be automated: posting without Karolina's review.
+A single-file browser tool for Carolina Chabert's Instagram/TikTok content
+workflow. It's a personal drafting aid, not an automation pipeline — **it
+never posts, schedules, or publishes anything.** Every stage produces a draft
+that Karolina reads, edits, and copies out herself.
 
-## The workflow
+This replaces an earlier batch/Metricool-automation design in this repo. The
+actual decision, reached in a separate planning conversation, was simpler and
+fully manual: draft, review, copy, post by hand — nothing auto-publishes.
 
-| Step | Who | Command |
-|---|---|---|
-| 1. Scan formats | Claude (WebSearch) + Karolina/Pierre forward screenshots | `plan` |
-| 2. Draft plan (script, shot list, wardrobe notes) | Claude | `plan` |
-| 3. Batch film (every 2–3 weeks, one session) | Karolina, hands-on | *(human — the `plan` output is the filming-day brief)* |
-| 4. Draft captions + pillar-matched CTAs | Claude, checked against `brand_bible.md` | `captions` |
-| 5. Approve | **Karolina — non-negotiable gate** | `approve` |
-| 6. Schedule to Instagram + TikTok together | Metricool | `schedule` |
+## What it does
 
-Everything for one filming cycle ("batch") lives under `data/batches/<batch_id>/`:
-`references.md`, `plan.md`, `captions.md`, `APPROVAL.json`, `schedule_receipt.json`.
-That folder is the audit trail — what was researched, what was drafted, who
-approved it and when, what actually got scheduled.
+Open `content-draft-assistant.html` in a browser. Three stages:
 
-## Why the approval gate is enforced in code, not just in the prompt
+1. **Plan the shoot** (before filming) — pick a content pillar and format
+   (video or carousel), describe the topic (or use "Suggest a piece from my
+   collection"), and get a script/slide list, hook & pacing notes, shot list,
+   and wardrobe notes. Any shot she can't film gets a reference-image search
+   (Unsplash/Pexels/Pixabay via Claude's web search) so she has something to
+   look at instead.
+2. **Draft captions** (after filming) — describe what's in the footage and
+   get two on-brand caption drafts with pillar-matched CTAs, on-screen banner
+   text, and a bio-link label, checked against the voice rules baked into the
+   prompt (see below).
+3. **Format on-screen captions** (after the real, as-spoken video exists) —
+   paste the actual final transcript (captured by playing the video to
+   Claude in voice mode) and get it split into short CapCut-style on-screen
+   lines with words flagged to bold. It never rewrites her words, only
+   splits them.
 
-`content_agent/tools/metricool.py`'s `schedule_post()` refuses to run unless
-it's passed `is_approved=True`, which is only ever sourced from the presence
-of `data/batches/<batch_id>/APPROVAL.json` on disk. That file is only ever
-written by a human running `content_agent.main approve` — the agent has no
-tool that can create it. So even if a future prompt change told Claude to
-"just schedule it," the code path still hard-stops.
+A static reference card between stages 1 and 2 has one-time lighting/camera
+notes — that's hands-on setup, not something to regenerate each time.
 
 ## Setup
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # fill in ANTHROPIC_API_KEY, and Metricool creds when ready
-```
+No build step, no server, no install. Open `content-draft-assistant.html`
+directly in a browser (double-click it, or `open content-draft-assistant.html`
+on macOS).
 
-Fill in `brand_bible.md` with your actual voice rules, content pillars, and
-CTA style — the caption-drafting step reads this file directly and the
-placeholder sections are meant to be replaced.
+Paste an Anthropic API key into the field at the top of the page. It's saved
+to `localStorage` in that browser and sent directly from the browser to
+`api.anthropic.com` — nothing passes through any other server.
 
-## Running a batch cycle
+**Because the key lives in this file's browser storage and every request
+goes straight from the browser:**
+- Don't open this file on a shared or public computer with the key saved.
+- Don't host this file anywhere public (e.g. a public URL) — anyone who
+  loads the page and has (or steals) the key can use it.
+- This is a deliberate "internal tool for one person" pattern, not something
+  to turn into a shared web app without adding a real backend that holds the
+  key server-side instead.
 
-```bash
-# 1-2: scan formats + draft the plan. Pass along anything Karolina/Pierre forwarded.
-python -m content_agent.main plan --batch 2026-07-batch \
-  --reference "IG reel from @creator, hook: cold open mid-action, text overlay reveals the twist at 3s" \
-  --reference-source "Pierre" \
-  --brief "Focus on the skincare pillar this cycle"
+## Brand voice, content pillars, and guardrails are in the prompts, not a config file
 
-# 3: Karolina films from data/batches/2026-07-batch/plan.md (out of band)
+Unlike a general-purpose tool, the rules are specific to Carolina's brand and
+written directly into the system prompts in the `<script>` block:
 
-# 4: draft captions + CTAs once filming is done (or in parallel with editing)
-python -m content_agent.main captions --batch 2026-07-batch
+- **Content pillars** (`PILLARS` constant): Founder story, Bespoke story,
+  Transformation, Education, Behind the scenes, Direct offer, Inspiration.
+- **Hook & pacing rules**, a **production rule** (never suggest filming
+  outsourced steps like casting or stone-setting — she does bench polishing
+  herself, which is a good authentic shot), and a **wardrobe rule** (solid
+  saturated colours against the white/cream filming background) live in
+  `PLAN_SYSTEM_PROMPT_BASE`.
+- **Voice rules** (banned phrases like "timeless elegance", never inventing
+  a price or certification) and **CTA-strength-by-pillar rules** (e.g.
+  Direct offer gets the strongest CTA, Behind-the-scenes usually gets none)
+  live in `CAPTION_SYSTEM_PROMPT`.
+- Every plan includes a standing flag: *"Adapt structure and pacing only
+  from any reference format — never copy another creator's actual dialogue
+  or footage."*
 
-# 5: Karolina reviews plan.md + captions.md, then approves herself
-python -m content_agent.main approve --batch 2026-07-batch --reviewer Karolina --note "swap CTA on video 2"
+To change brand voice or add a pillar, edit these prompt constants directly
+— there's no separate brand-bible file to keep in sync.
 
-# 6: schedule the approved post to Instagram + TikTok together
-python -m content_agent.main schedule --batch 2026-07-batch --platforms instagram tiktok
+## Known limitation: "Suggest a piece from my collection"
 
-# check state of a batch (or list all batches) at any point
-python -m content_agent.main status --batch 2026-07-batch
-python -m content_agent.main status
-```
+This button is meant to search Karolina's Google Drive for pieces from the
+permanent collection. **It isn't wired up in this file** — the JS explicitly
+refuses the call rather than pointing at a guessed Drive endpoint, because
+I couldn't verify a real Google Drive MCP connector URL or obtain an OAuth
+token for one in this session. Clicking it will always show a "not
+connected yet" message and fall through to the manual topic field, which
+still works fine.
 
-Running `schedule` before `approve` fails loudly:
+To make it real: stand up or subscribe to an actual Drive MCP connector,
+get an OAuth token for Carolina's Drive, and add an `mcp_servers` block plus
+`anthropic-beta: mcp-client-2025-04-04` header to the relevant `callClaude`
+call — see [Anthropic's MCP connector docs](https://docs.anthropic.com/en/docs/agents-and-tools/mcp-connector).
+Until then, use "Suggest a piece" as a placeholder for a future upgrade, not
+a working feature.
 
-```
-BLOCKED: Batch is not approved. Karolina must run
-`python -m content_agent.main approve --batch <id>` before anything schedules.
-```
-
-## Metricool integration
-
-Without `METRICOOL_USER_TOKEN` / `METRICOOL_USER_ID` set in `.env`, `schedule`
-runs in **dry-run mode**: it returns a mock receipt so you can exercise the
-whole pipeline before wiring in real credentials. Once you add:
-
-- `METRICOOL_USER_TOKEN`, `METRICOOL_USER_ID`, `METRICOOL_BLOG_ID`
-- `METRICOOL_INSTAGRAM_ACCOUNT_ID`, `METRICOOL_TIKTOK_ACCOUNT_ID`
-
-it calls Metricool's scheduler API for real. **Double-check the request shape
-in `content_agent/tools/metricool.py` against Metricool's current API docs
-before relying on it** — endpoint/field names there are a best-effort based
-on their documented scheduler API and may drift.
-
-## Guardrail: never copy another creator's actual content
-
-The system prompt in `content_agent/main.py` explicitly instructs Claude to
-adapt only structure and pacing from reference formats — never another
-creator's actual dialogue, on-screen text, or footage. This is a prompt-level
-guardrail (unlike the approval gate, which is enforced in code) — spot-check
-`plan.md` output against the references it cites.
+The reference-image search (Unsplash/Pexels/Pixabay, inside the shot list)
+is real and doesn't have this limitation — it uses Claude's built-in web
+search, which only needs the API key.
 
 ## Project layout
 
 ```
-content_agent/
-  main.py                 CLI entrypoint (plan / captions / approve / schedule / status)
-  state.py                Per-batch file-based state
-  tools/
-    pipeline_tools.py      SDK tools exposed to the agent (log_reference, save_plan, ...)
-    metricool.py            Metricool scheduling + the hard approval-gate check
-brand_bible.md             Voice rules, content pillars, CTA style — fill this in
-data/
-  inbox/                   Drop raw screenshots Karolina/Pierre forward here (optional)
-  batches/<batch_id>/       One folder per filming cycle — the audit trail
+content-draft-assistant.html   The whole tool — HTML, CSS, and JS in one file
 ```
